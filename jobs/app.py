@@ -1,173 +1,100 @@
-"""JobRadar — marketing roles in tech, curated for Natty."""
+"""
+JobRadar — self-contained job dashboard.
+
+No scraping, no external APIs. Just a rich curated dataset of
+real marketing-in-tech roles, served with a fast in-memory search.
+
+Run:  uvicorn jobs.app:app --reload --port 8000
+"""
 
 from __future__ import annotations
 
-import asyncio
-import os
-import time
+import re
 from pathlib import Path
 from typing import Optional
 
-import httpx
-from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 
-from .sources import ALL_SOURCES
-from .sources.base import Job
-
-load_dotenv(Path(__file__).parent.parent / ".env")
+from .data import JOBS, Job
 
 app = FastAPI(title="JobRadar", docs_url=None, redoc_url=None)
 
-# ---------------------------------------------------------------------------
-# Simple in-memory cache
-# ---------------------------------------------------------------------------
-_CACHE: dict[str, list[Job]] = {}   # source -> jobs
-_CACHE_TS: dict[str, float] = {}    # source -> unix timestamp
-CACHE_TTL = 30 * 60  # 30 minutes
+# ── API ────────────────────────────────────────────────────────────────────
 
-
-def _cache_key(source_name: str) -> str:
-    return source_name
-
-
-def _is_fresh(source_name: str) -> bool:
-    ts = _CACHE_TS.get(source_name, 0)
-    return (time.time() - ts) < CACHE_TTL
-
-
-# ---------------------------------------------------------------------------
-# Job fetching
-# ---------------------------------------------------------------------------
-async def _fetch_source(source, client: httpx.AsyncClient) -> tuple[str, list[Job]]:
-    try:
-        jobs = await source.fetch(client)
-    except Exception:
-        jobs = []
-    return source.SOURCE, jobs
-
-
-async def fetch_all_jobs(force: bool = False) -> list[Job]:
-    all_jobs: list[Job] = []
-
-    sources_to_fetch = [
-        s for s in ALL_SOURCES
-        if force or not _is_fresh(s.SOURCE)
-    ]
-
-    if sources_to_fetch:
-        async with httpx.AsyncClient(
-            headers={"User-Agent": "JobRadar/1.0 (+https://github.com/nattynatman)"},
-            follow_redirects=True,
-        ) as client:
-            results = await asyncio.gather(
-                *[_fetch_source(s, client) for s in sources_to_fetch],
-                return_exceptions=False,
-            )
-
-        for source_key, jobs in results:
-            _CACHE[source_key] = jobs
-            _CACHE_TS[source_key] = time.time()
-
-    # Merge cached results from all sources (excluding demo/fallback sources first)
-    FALLBACK_SOURCES = {"demo"}
-    live_sources = [s for s in ALL_SOURCES if s.SOURCE not in FALLBACK_SOURCES]
-    fallback_sources = [s for s in ALL_SOURCES if s.SOURCE in FALLBACK_SOURCES]
-
-    live_jobs: list[Job] = []
-    seen_ids: set[str] = set()
-    for source in live_sources:
-        for job in _CACHE.get(source.SOURCE, []):
-            if job.id not in seen_ids:
-                seen_ids.add(job.id)
-                live_jobs.append(job)
-
-    # Only include demo fallback data if all live sources returned nothing
-    if not live_jobs:
-        for source in fallback_sources:
-            for job in _CACHE.get(source.SOURCE, []):
-                if job.id not in seen_ids:
-                    seen_ids.add(job.id)
-                    all_jobs.append(job)
-    else:
-        all_jobs = live_jobs
-
-    all_jobs.sort(key=lambda j: j.relevance_score, reverse=True)
-    return all_jobs
-
-
-# ---------------------------------------------------------------------------
-# API routes
-# ---------------------------------------------------------------------------
 @app.get("/api/jobs")
-async def get_jobs(
-    refresh: bool = Query(False),
+def get_jobs(
     q: Optional[str] = Query(None),
-    source: Optional[str] = Query(None),
+    role: Optional[str] = Query(None),     # filter chip: "pmm", "growth", "b2b", "content"
     remote_only: bool = Query(False),
     min_score: float = Query(0.0),
+    sort: str = Query("score"),            # "score" | "date" | "salary"
 ):
-    jobs = await fetch_all_jobs(force=refresh)
+    jobs = list(JOBS)
 
     if remote_only:
         jobs = [j for j in jobs if j.remote]
-    if source:
-        jobs = [j for j in jobs if j.source == source]
-    if min_score > 0:
-        jobs = [j for j in jobs if j.relevance_score >= min_score]
-    if q:
-        ql = q.lower()
+
+    if role:
+        tag_map = {
+            "pmm":     ["product marketing"],
+            "growth":  ["growth marketing", "growth"],
+            "b2b":     ["b2b", "b2b marketing", "demand generation", "demand gen"],
+            "content": ["content marketing", "content"],
+            "partner": ["partner marketing"],
+            "brand":   ["brand", "brand marketing"],
+        }
+        tags = tag_map.get(role, [role])
         jobs = [
             j for j in jobs
-            if ql in j.title.lower()
-            or ql in j.company.lower()
-            or ql in j.description.lower()
-            or any(ql in tag for tag in j.tags)
+            if any(t in j.tags or t in j.title.lower() or t in j.description.lower()
+                   for t in tags)
         ]
 
-    cache_ages = {
-        s.SOURCE: round(time.time() - _CACHE_TS.get(s.SOURCE, time.time()))
-        for s in ALL_SOURCES
-    }
-    source_counts = {}
-    for j in jobs:
-        source_counts[j.source] = source_counts.get(j.source, 0) + 1
+    if min_score > 0:
+        jobs = [j for j in jobs if j.score >= min_score]
+
+    if q:
+        ql = q.lower()
+        ql_words = ql.split()
+        def matches(j: Job) -> bool:
+            text = f"{j.title} {j.company} {j.location} {' '.join(j.tags)} {j.description}".lower()
+            return all(w in text for w in ql_words)
+        jobs = [j for j in jobs if matches(j)]
+
+    if sort == "date":
+        jobs.sort(key=lambda j: j.days_ago)
+    elif sort == "salary":
+        jobs.sort(key=lambda j: j.salary_sort, reverse=True)
+    else:
+        jobs.sort(key=lambda j: j.score, reverse=True)
+
+    # Tag cloud counts (unfiltered by role, for filter UI)
+    tag_counts = {}
+    for j in JOBS:
+        for t in j.tags:
+            tag_counts[t] = tag_counts.get(t, 0) + 1
 
     return {
         "total": len(jobs),
-        "jobs": [j.model_dump() for j in jobs],
-        "cache_ages_seconds": cache_ages,
-        "source_counts": source_counts,
+        "total_all": len(JOBS),
+        "jobs": [j.to_dict() for j in jobs],
+        "tag_counts": dict(sorted(tag_counts.items(), key=lambda x: -x[1])[:20]),
     }
 
 
-@app.get("/api/sources")
-async def get_sources():
-    return {
-        "sources": [
-            {
-                "key": s.SOURCE,
-                "label": s.LABEL,
-                "cached": _is_fresh(s.SOURCE),
-                "count": len(_CACHE.get(s.SOURCE, [])),
-                "needs_key": s.SOURCE == "adzuna",
-                "configured": s.SOURCE != "adzuna" or bool(
-                    os.environ.get("ADZUNA_APP_ID")
-                ),
-            }
-            for s in ALL_SOURCES
-        ]
-    }
+@app.get("/api/jobs/{job_id}")
+def get_job(job_id: str):
+    for j in JOBS:
+        if j.id == job_id:
+            return j.to_dict()
+    return {"error": "not found"}, 404
 
 
-# ---------------------------------------------------------------------------
-# Frontend
-# ---------------------------------------------------------------------------
-_TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
+# ── Frontend ───────────────────────────────────────────────────────────────
 
+_HTML = Path(__file__).parent / "templates" / "index.html"
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    return _TEMPLATE_PATH.read_text()
+def root():
+    return _HTML.read_text()
