@@ -71,19 +71,30 @@ async def fetch_all_jobs(force: bool = False) -> list[Job]:
             _CACHE[source_key] = jobs
             _CACHE_TS[source_key] = time.time()
 
-    # Merge cached results from all sources
+    # Merge cached results from all sources (excluding demo/fallback sources first)
+    FALLBACK_SOURCES = {"demo"}
+    live_sources = [s for s in ALL_SOURCES if s.SOURCE not in FALLBACK_SOURCES]
+    fallback_sources = [s for s in ALL_SOURCES if s.SOURCE in FALLBACK_SOURCES]
+
+    live_jobs: list[Job] = []
     seen_ids: set[str] = set()
-    for source in ALL_SOURCES:
+    for source in live_sources:
         for job in _CACHE.get(source.SOURCE, []):
             if job.id not in seen_ids:
                 seen_ids.add(job.id)
-                all_jobs.append(job)
+                live_jobs.append(job)
 
-    # Sort by relevance descending, then by posted_at descending
-    all_jobs.sort(key=lambda j: (-j.relevance_score, j.posted_at or ""), reverse=False)
-    # secondary: most recent first within same score bucket
+    # Only include demo fallback data if all live sources returned nothing
+    if not live_jobs:
+        for source in fallback_sources:
+            for job in _CACHE.get(source.SOURCE, []):
+                if job.id not in seen_ids:
+                    seen_ids.add(job.id)
+                    all_jobs.append(job)
+    else:
+        all_jobs = live_jobs
+
     all_jobs.sort(key=lambda j: j.relevance_score, reverse=True)
-
     return all_jobs
 
 
