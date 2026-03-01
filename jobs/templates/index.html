@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobRadar — Marketing in Tech</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#f0f4ff', 100:'#e0e8ff', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    * { font-family: 'Inter', system-ui, sans-serif; }
+
+    .job-card {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .job-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(99,102,241,0.12), 0 4px 10px -3px rgba(0,0,0,0.08);
+    }
+
+    /* Relevance bar */
+    .rel-bar { height: 3px; border-radius: 2px; background: #e0e7ff; }
+    .rel-fill { height: 3px; border-radius: 2px; transition: width 0.4s ease; }
+
+    /* Score color gradient */
+    .score-high  { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+    .score-med   { background: linear-gradient(90deg, #22d3ee, #6366f1); }
+    .score-low   { background: linear-gradient(90deg, #94a3b8, #cbd5e1); }
+
+    /* Skeleton shimmer */
+    @keyframes shimmer {
+      0%   { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 1000px 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f8fafc; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    .tag-pill {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .source-badge {
+      font-size: 0.68rem;
+      padding: 0.18rem 0.5rem;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .source-remotive  { background: #fef3c7; color: #92400e; }
+    .source-jobicy    { background: #dcfce7; color: #166534; }
+    .source-themuse   { background: #ede9fe; color: #4c1d95; }
+    .source-hn_hiring { background: #fee2e2; color: #991b1b; }
+    .source-adzuna    { background: #e0f2fe; color: #075985; }
+
+    .filter-chip {
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .filter-chip.active {
+      background: #6366f1;
+      color: white;
+    }
+    .filter-chip:not(.active) {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .filter-chip:hover:not(.active) {
+      background: #e0e7ff;
+      color: #4338ca;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+<!-- ── HEADER ──────────────────────────────────────────────────────────── -->
+<header class="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-base font-700 text-slate-800 leading-none" style="font-weight:700">JobRadar</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Marketing in tech — curated</p>
+      </div>
+    </div>
+
+    <!-- search -->
+    <div class="flex-1 max-w-md relative">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+      </svg>
+      <input id="search-input" type="text" placeholder="Search title, company, keyword…"
+        class="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition bg-slate-50" />
+    </div>
+
+    <!-- refresh -->
+    <button id="refresh-btn" onclick="loadJobs(true)"
+      class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition">
+      <svg id="refresh-icon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<!-- ── MAIN LAYOUT ──────────────────────────────────────────────────────── -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex gap-6">
+
+  <!-- ── SIDEBAR ───────────────────────────────────────────────────────── -->
+  <aside class="w-60 flex-shrink-0 space-y-5">
+
+    <!-- Status -->
+    <div class="bg-white rounded-xl border border-slate-100 p-4">
+      <p class="text-xs font-600 text-slate-500 uppercase tracking-wider mb-2" style="font-weight:600">Status</p>
+      <div id="status-section" class="space-y-1.5">
+        <div class="skeleton h-4 w-full"></div>
+        <div class="skeleton h-4 w-3/4"></div>
+      </div>
+    </div>
+
+    <!-- Remote filter -->
+    <div class="bg-white rounded-xl border border-slate-100 p-4">
+      <p class="text-xs font-600 text-slate-500 uppercase tracking-wider mb-3" style="font-weight:600">Location</p>
+      <div class="flex gap-2">
+        <button onclick="setRemote(false)"
+          id="btn-all" class="filter-chip active flex-1 text-xs py-1.5 rounded-lg text-center font-medium">All</button>
+        <button onclick="setRemote(true)"
+          id="btn-remote" class="filter-chip flex-1 text-xs py-1.5 rounded-lg text-center font-medium">Remote only</button>
+      </div>
+    </div>
+
+    <!-- Relevance filter -->
+    <div class="bg-white rounded-xl border border-slate-100 p-4">
+      <p class="text-xs font-600 text-slate-500 uppercase tracking-wider mb-3" style="font-weight:600">Min Relevance</p>
+      <div class="space-y-1.5" id="score-filters">
+        <button onclick="setMinScore(0)" id="score-0" class="filter-chip active w-full text-xs py-1.5 rounded-lg text-center font-medium">All jobs</button>
+        <button onclick="setMinScore(2)" id="score-2" class="filter-chip w-full text-xs py--1.5 rounded-lg text-center font-medium">Good match (2+)</button>
+        <button onclick="setMinScore(4)" id="score-4" class="filter-chip w-full text-xs py-1.5 rounded-lg text-center font-medium">Strong match (4+)</button>
+        <button onclick="setMinScore(6)" id="score-6" class="filter-chip w-full text-xs py-1.5 rounded-lg text-center font-medium">Best match (6+)</button>
+      </div>
+    </div>
+
+    <!-- Sources -->
+    <div class="bg-white rounded-xl border border-slate-100 p-4">
+      <p class="text-xs font-600 text-slate-500 uppercase tracking-wider mb-3" style="font-weight:600">Sources</p>
+      <div id="source-filters" class="space-y-1.5">
+        <button onclick="setSource(null)" id="src-all" class="filter-chip active w-full text-xs py-1.5 rounded-lg text-center font-medium">All sources</button>
+      </div>
+      <div id="source-counts" class="mt-3 space-y-1 text-xs text-slate-400"></div>
+    </div>
+
+    <!-- Persona card -->
+    <div class="bg-gradient-to-br from-brand-500 to-purple-600 rounded-xl p-4 text-white">
+      <p class="text-xs font-600 uppercase tracking-wider opacity-75 mb-2" style="font-weight:600">Tuned for</p>
+      <p class="font-600 text-sm leading-snug" style="font-weight:600">Retail Marketing → Tech / B2B</p>
+      <p class="text-xs opacity-75 mt-1 leading-snug">Startup, SaaS, eCommerce, Marketplace roles</p>
+      <div class="mt-3 flex flex-wrap gap-1">
+        <span class="bg-white/20 text-white tag-pill">Product Marketing</span>
+        <span class="bg-white/20 text-white tag-pill">Growth</span>
+        <span class="bg-white/20 text-white tag-pill">B2B</span>
+        <span class="bg-white/20 text-white tag-pill">Demand Gen</span>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── JOB LIST ──────────────────────────────────────────────────────── -->
+  <main class="flex-1 min-w-0">
+
+    <!-- Count bar -->
+    <div class="flex items-center justify-between mb-4">
+      <p id="count-label" class="text-sm text-slate-500">Loading jobs…</p>
+      <div class="flex gap-2 items-center">
+        <span class="text-xs text-slate-400" id="last-updated"></span>
+      </div>
+    </div>
+
+    <!-- Jobs grid -->
+    <div id="jobs-container" class="space-y-3">
+      <!-- skeleton cards -->
+      <div class="skeleton h-32 w-full rounded-xl"></div>
+      <div class="skeleton h-32 w-full rounded-xl"></div>
+      <div class="skeleton h-32 w-full rounded-xl"></div>
+      <div class="skeleton h-32 w-full rounded-xl"></div>
+      <div class="skeleton h-32 w-full rounded-xl"></div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-slate-400">
+      <svg class="w-12 h-12 mb-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <p class="font-medium text-slate-500">No jobs found</p>
+      <p class="text-sm mt-1">Try adjusting your filters or refreshing</p>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── SCRIPTS ────────────────────────────────────────────────────────── -->
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let state = {
+  allJobs: [],
+  remoteOnly: false,
+  selectedSource: null,
+  minScore: 0,
+  query: '',
+  loading: false,
+  lastUpdated: null,
+  sourceCounts: {},
+};
+
+const SOURCE_LABELS = {
+  remotive: 'Remotive',
+  jobicy: 'Jobicy',
+  themuse: 'The Muse',
+  hn_hiring: 'HN Hiring',
+  adzuna: 'Adzuna',
+};
+
+// ── Fetch ──────────────────────────────────────────────────────────────────
+async function loadJobs(force = false) {
+  if (state.loading) return;
+  state.loading = true;
+  setRefreshSpinning(true);
+  document.getElementById('count-label').textContent = 'Fetching jobs…';
+
+  try {
+    const params = new URLSearchParams({ refresh: force });
+    const res = await fetch(`/api/jobs?${params}`);
+    const data = await res.json();
+    state.allJobs = data.jobs;
+    state.sourceCounts = data.source_counts || {};
+    state.lastUpdated = new Date();
+    renderSources(data.source_counts);
+    render();
+  } catch (e) {
+    document.getElementById('count-label').textContent = 'Error loading jobs — try refreshing';
+  } finally {
+    state.loading = false;
+    setRefreshSpinning(false);
+  }
+}
+
+// ── Filter + render ────────────────────────────────────────────────────────
+function filteredJobs() {
+  return state.allJobs.filter(j => {
+    if (state.remoteOnly && !j.remote) return false;
+    if (state.selectedSource && j.source !== state.selectedSource) return false;
+    if (j.relevance_score < state.minScore) return false;
+    if (state.query) {
+      const q = state.query.toLowerCase();
+      const haystack = `${j.title} ${j.company} ${j.description} ${j.tags.join(' ')}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function render() {
+  const jobs = filteredJobs();
+  const container = document.getElementById('jobs-container');
+  const empty = document.getElementById('empty-state');
+  const countLabel = document.getElementById('count-label');
+  const lastUpdated = document.getElementById('last-updated');
+
+  countLabel.textContent = `${jobs.length} job${jobs.length !== 1 ? 's' : ''} found`;
+  if (state.lastUpdated) {
+    lastUpdated.textContent = `Updated ${timeAgo(state.lastUpdated)}`;
+  }
+
+  if (jobs.length === 0) {
+    container.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  container.innerHTML = jobs.map(renderCard).join('');
+
+  renderStatus();
+}
+
+function renderCard(job) {
+  const maxScore = 10;
+  const pct = Math.min(100, (job.relevance_score / maxScore) * 100);
+  const scoreClass = job.relevance_score >= 5 ? 'score-high' : job.relevance_score >= 2.5 ? 'score-med' : 'score-low';
+  const badgeClass = `source-${job.source}`;
+
+  const logo = job.logo_url
+    ? `<img src="${escHtml(job.logo_url)}" alt="" class="w-10 h-10 rounded-lg object-contain border border-slate-100 bg-white p-1" onerror="this.style.display='none'" />`
+    : `<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-400 font-bold text-sm">${escHtml(job.company.charAt(0))}</div>`;
+
+  const salary = job.salary
+    ? `<span class="text-xs text-emerald-600 font-medium">${escHtml(job.salary)}</span>`
+    : '';
+
+  const remote = job.remote
+    ? `<span class="tag-pill bg-violet-50 text-violet-700">Remote</span>`
+    : '';
+
+  const tags = job.tags
+    .slice(0, 4)
+    .filter(t => t.length > 1 && t.length < 25)
+    .map(t => `<span class="tag-pill bg-slate-100 text-slate-600">${escHtml(t)}</span>`)
+    .join('');
+
+  const desc = job.description.replace(/<[^>]+>/g, '').trim().slice(0, 200);
+
+  const postedAgo = job.posted_at ? `<span class="text-xs text-slate-400">${formatDate(job.posted_at)}</span>` : '';
+
+  return `
+  <div class="job-card bg-white rounded-xl border border-slate-100 p-5 flex flex-col gap-3">
+    <!-- top row -->
+    <div class="flex items-start gap-3">
+      ${logo}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h3 class="font-600 text-slate-800 text-sm leading-snug truncate" style="font-weight:600">${escHtml(job.title)}</h3>
+            <p class="text-xs text-slate-500 mt-0.5">${escHtml(job.company)} &middot; ${escHtml(job.location)}</p>
+          </div>
+          <span class="source-badge ${badgeClass} flex-shrink-0">${escHtml(job.source_label)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- relevance bar -->
+    <div>
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs text-slate-400">Relevance</span>
+        <span class="text-xs font-medium text-slate-600">${job.relevance_score.toFixed(1)}</span>
+      </div>
+      <div class="rel-bar">
+        <div class="rel-fill ${scoreClass}" style="width:${pct}%"></div>
+      </div>
+    </div>
+
+    <!-- description -->
+    <p class="text-xs text-slate-500 leading-relaxed line-clamp-2">${escHtml(desc)}…</p>
+
+    <!-- footer -->
+    <div class="flex items-center justify-between gap-2 flex-wrap">
+      <div class="flex items-center gap-1.5 flex-wrap">
+        ${remote}
+        ${salary}
+        ${tags}
+        ${postedAgo}
+      </div>
+      <a href="${escHtml(job.url)}" target="_blank" rel="noopener noreferrer"
+        class="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium rounded-lg transition flex-shrink-0">
+        View job
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+        </svg>
+      </a>
+    </div>
+  </div>`;
+}
+
+// ── Source sidebar buttons ─────────────────────────────────────────────────
+function renderSources(counts) {
+  const container = document.getElementById('source-filters');
+  const allBtn = `<button onclick="setSource(null)" id="src-all" class="filter-chip ${!state.selectedSource ? 'active' : ''} w-full text-xs py-1.5 rounded-lg text-center font-medium">All sources</button>`;
+  const sourceBtns = Object.entries(counts)
+    .sort((a,b) => b[1]-a[1])
+    .map(([key, cnt]) => {
+      const label = SOURCE_LABELS[key] || key;
+      const active = state.selectedSource === key ? 'active' : '';
+      return `<button onclick="setSource('${key}')" id="src-${key}" class="filter-chip ${active} w-full text-xs py-1.5 rounded-lg text-center font-medium">${label} <span class="opacity-60">(${cnt})</span></button>`;
+    }).join('');
+  container.innerHTML = allBtn + sourceBtns;
+}
+
+function renderStatus() {
+  const el = document.getElementById('status-section');
+  const total = filteredJobs().length;
+  const all = state.allJobs.length;
+  el.innerHTML = `
+    <p class="text-sm font-medium text-slate-700">${total} / ${all} jobs</p>
+    <p class="text-xs text-slate-400">${Object.keys(state.sourceCounts).length} sources active</p>
+  `;
+}
+
+// ── Controls ───────────────────────────────────────────────────────────────
+function setRemote(val) {
+  state.remoteOnly = val;
+  document.getElementById('btn-all').classList.toggle('active', !val);
+  document.getElementById('btn-remote').classList.toggle('active', val);
+  render();
+}
+
+function setSource(key) {
+  state.selectedSource = key;
+  document.querySelectorAll('[id^="src-"]').forEach(el => el.classList.remove('active'));
+  document.getElementById(key ? `src-${key}` : 'src-all')?.classList.add('active');
+  render();
+}
+
+function setMinScore(val) {
+  state.minScore = val;
+  [0,2,4,6].forEach(v => {
+    document.getElementById(`score-${v}`)?.classList.toggle('active', v === val);
+  });
+  render();
+}
+
+// ── Search debounce ────────────────────────────────────────────────────────
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.query = e.target.value.trim();
+    render();
+  }, 200);
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function timeAgo(date) {
+  const diff = Math.round((Date.now() - date) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.round(diff/60)}m ago`;
+  return `${Math.round(diff/3600)}h ago`;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    const diff = Math.round((Date.now() - d) / 86400000);
+    if (diff === 0) return 'today';
+    if (diff === 1) return '1d ago';
+    if (diff < 7) return `${diff}d ago`;
+    if (diff < 30) return `${Math.round(diff/7)}w ago`;
+    return `${Math.round(diff/30)}mo ago`;
+  } catch {
+    return '';
+  }
+}
+
+function setRefreshSpinning(on) {
+  const icon = document.getElementById('refresh-icon');
+  if (on) icon.style.animation = 'spin 1s linear infinite';
+  else icon.style.animation = '';
+}
+
+// css spin keyframe (tailwind's animate-spin equivalent inline)
+const style = document.createElement('style');
+style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(style);
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+loadJobs(false);
+
+// Auto-refresh every 30 min
+setInterval(() => loadJobs(false), 30 * 60 * 1000);
+</script>
+</body>
+</html>
