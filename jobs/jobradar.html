@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JobRadar — Marketing in Tech</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+*{font-family:'Inter',system-ui,sans-serif}
+.card{transition:box-shadow .15s,transform .15s}
+.card:hover{box-shadow:0 8px 24px -4px rgba(99,102,241,.15);transform:translateY(-1px)}
+.chip{cursor:pointer;padding:.3rem .75rem;border-radius:999px;font-size:.75rem;font-weight:600;transition:all .12s;border:1.5px solid transparent}
+.chip.on{background:#6366f1;color:#fff;border-color:#6366f1}
+.chip.off{background:#f1f5f9;color:#475569;border-color:transparent}
+.chip.off:hover{background:#e0e7ff;color:#4338ca}
+.tag{font-size:.67rem;font-weight:600;padding:.18rem .52rem;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+.bar{height:4px;border-radius:2px;background:#e0e7ff}
+.fill{height:4px;border-radius:2px;transition:width .5s ease}
+.hi{background:linear-gradient(90deg,#6366f1,#a855f7)}
+.md{background:linear-gradient(90deg,#22d3ee,#6366f1)}
+.lo{background:linear-gradient(90deg,#94a3b8,#cbd5e1)}
+.badge-startup{background:#fef3c7;color:#92400e}
+.badge-scaleup{background:#dcfce7;color:#166534}
+.badge-enterprise{background:#e0f2fe;color:#075985}
+input:focus{outline:2px solid #6366f1;outline-offset:0}
+select:focus{outline:2px solid #6366f1;outline-offset:0}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+</style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+<!-- HEADER -->
+<header class="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
+  <div class="max-w-6xl mx-auto px-5 py-3 flex items-center gap-4">
+    <div class="flex items-center gap-2.5 flex-shrink-0">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-slate-800 leading-none">JobRadar</p>
+        <p class="text-[10px] text-slate-400 mt-0.5">Marketing → Tech &amp; Startups</p>
+      </div>
+    </div>
+
+    <div class="flex-1 relative">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+      </svg>
+      <input id="q" type="text" placeholder="Search role, company, keyword…"
+        class="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 transition" />
+    </div>
+
+    <select id="sort" class="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-600 cursor-pointer">
+      <option value="score">Best match</option>
+      <option value="date">Most recent</option>
+      <option value="salary">Highest salary</option>
+    </select>
+
+    <span id="count" class="text-sm text-slate-400 flex-shrink-0 w-20 text-right"></span>
+  </div>
+</header>
+
+<!-- LAYOUT -->
+<div class="max-w-6xl mx-auto px-5 py-5 flex gap-5">
+
+  <!-- SIDEBAR -->
+  <aside class="w-52 flex-shrink-0 space-y-4">
+
+    <!-- Role type -->
+    <div class="bg-white rounded-xl border border-slate-100 p-4">
+      <p class="text-[10px] font-700 text-slate-400 uppercase tracking-widest mb-3">Role type</p>
+      <div class="flex flex-col gap-1.5" id="role-chips"></div>
+    </div>
+
+    <!-- Company type -->
+    <div class="bg-white rounded-xl border border-slate-100 p-4">
+      <p class="text-[10px] font-700 text-slate-400 uppercase tracking-widest mb-3">Company stage</p>
+      <div class="flex flex-col gap-1.5" id="type-chips"></div>
+    </div>
+
+    <!-- Remote toggle -->
+    <div class="bg-white rounded-xl border border-slate-100 p-4">
+      <p class="text-[10px] font-700 text-slate-400 uppercase tracking-widest mb-3">Location</p>
+      <div class="flex flex-col gap-1.5">
+        <button class="chip on text-left" id="loc-all" onclick="setLoc('all')">All locations</button>
+        <button class="chip off text-left" id="loc-remote" onclick="setLoc('remote')">Remote / hybrid</button>
+      </div>
+    </div>
+
+    <!-- Min score -->
+    <div class="bg-white rounded-xl border border-slate-100 p-4">
+      <p class="text-[10px] font-700 text-slate-400 uppercase tracking-widest mb-3">Match strength</p>
+      <div class="flex flex-col gap-1.5">
+        <button class="chip on text-left" id="sc-0" onclick="setScore(0)">All jobs</button>
+        <button class="chip off text-left" id="sc-3" onclick="setScore(3)">Good match</button>
+        <button class="chip off text-left" id="sc-6" onclick="setScore(6)">Strong match</button>
+        <button class="chip off text-left" id="sc-9" onclick="setScore(9)">Best match</button>
+      </div>
+    </div>
+
+    <!-- persona card -->
+    <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-4 text-white">
+      <p class="text-[9px] uppercase tracking-widest opacity-70 mb-1.5">Tuned for</p>
+      <p class="text-sm font-semibold leading-snug">Retail Marketing → Tech / B2B</p>
+      <p class="text-[10px] opacity-70 mt-1 leading-snug">eBay AU background. Targeting startup, SaaS, ecommerce &amp; marketplace roles.</p>
+    </div>
+
+  </aside>
+
+  <!-- JOB LIST -->
+  <main class="flex-1 min-w-0 space-y-3" id="list"></main>
+
+</div>
+
+<!-- EMPTY STATE -->
+<div id="empty" class="hidden flex-col items-center justify-center py-24 text-slate-400">
+  <svg class="w-10 h-10 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="font-medium text-slate-500">No jobs match — try different filters</p>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────
+const JOBS = [
+  {title:"Product Marketing Manager — Platform",company:"Canva",type:"scaleup",location:"Sydney, AU",remote:true,url:"https://www.canva.com/careers/",desc:"Own GTM strategy for Canva's B2B platform offering. Define positioning and messaging for new product lines targeting enterprise and SMB customers, run launch programmes, and partner with Product and Sales. Ecommerce or marketplace SaaS background is a strong advantage.",tags:["product marketing","b2b","saas","platform"],salary:"AUD $130k–$165k",days:2,score:12.0},
+  {title:"Senior Product Marketing Manager",company:"Atlassian",type:"enterprise",location:"Sydney, AU",remote:true,url:"https://www.atlassian.com/company/careers",desc:"Lead product marketing for Atlassian's collaboration suite across Confluence and Jira's B2B segments. Drive narrative, competitive positioning, and sales enablement materials. Fluency in B2B SaaS buying journeys required.",tags:["product marketing","b2b","saas","enterprise"],salary:"AUD $145k–$180k",days:5,score:10.5},
+  {title:"Product Marketing Manager, Marketplace",company:"Rokt",type:"scaleup",location:"Sydney, AU / New York",remote:true,url:"https://rokt.com/careers/",desc:"Rokt's ecommerce technology powers post-purchase marketing for the world's largest retailers. Join as PMM for our two-sided marketplace product — defining value props for both merchant and advertiser segments. Strong ecommerce or marketplace background is a must.",tags:["product marketing","marketplace","ecommerce","b2b"],salary:"AUD $125k–$160k",days:3,score:13.5},
+  {title:"Product Marketing Lead",company:"SafetyCulture",type:"scaleup",location:"Sydney, AU",remote:false,url:"https://safetyculture.com/careers/",desc:"SafetyCulture (iAuditor) is a global operations platform used by 60,000+ organisations. Lead PMM for our core product, owning launches, competitive intel, and sales enablement. B2B SaaS experience with strong storytelling skills.",tags:["product marketing","b2b","saas"],salary:"AUD $130k–$160k",days:7,score:11.0},
+  {title:"Product Marketing Manager — Sellers",company:"Catch Group",type:"enterprise",location:"Melbourne, AU",remote:true,url:"https://www.catch.com.au/jobs/",desc:"Own product marketing for Catch's marketplace seller platform. Work with Product and Seller Success to define value props, create onboarding content, and drive seller acquisition campaigns. Strong ecommerce or marketplace DNA.",tags:["product marketing","marketplace","ecommerce","sellers"],salary:"AUD $110k–$140k",days:6,score:12.5},
+  {title:"B2B Marketing Manager",company:"Shopify",type:"enterprise",location:"Remote (APAC)",remote:true,url:"https://www.shopify.com/careers",desc:"Develop and execute B2B campaigns targeting mid-market and enterprise merchants across APAC. Own webinar programmes, content, and demand generation for Shopify Plus. Deep ecommerce platform knowledge and a data-driven approach required.",tags:["b2b marketing","demand generation","ecommerce","saas"],salary:"AUD $120k–$155k",days:4,score:14.0},
+  {title:"Demand Generation Manager",company:"Stripe",type:"enterprise",location:"Remote (APAC)",remote:true,url:"https://stripe.com/jobs",desc:"Own multi-channel demand generation programmes for Stripe's APAC business segment. Drive pipeline through paid media, ABM, content syndication, and field events. Work closely with SDR and Sales teams to optimise funnel velocity.",tags:["demand generation","b2b","saas","enterprise","abm"],salary:"AUD $130k–$165k",days:8,score:12.0},
+  {title:"Demand Generation Lead",company:"HubSpot",type:"enterprise",location:"Remote (AU/NZ)",remote:true,url:"https://www.hubspot.com/company/careers",desc:"Lead demand generation for HubSpot's ANZ region, owning paid, lifecycle, and event marketing to drive MQL and pipeline targets. CRM and SaaS marketing background and strong data skills essential.",tags:["demand generation","b2b","saas","crm"],salary:"AUD $115k–$145k",days:10,score:11.0},
+  {title:"B2B Marketing Specialist",company:"Xero",type:"enterprise",location:"Melbourne, AU",remote:true,url:"https://www.xero.com/au/about/careers/",desc:"Support B2B marketing programmes targeting accounting practices and SMBs across Australia. Manage campaign execution, partner co-marketing, and performance reporting. Great role for someone moving from retail into B2B tech.",tags:["b2b marketing","saas","partner marketing","fintech"],salary:"AUD $95k–$120k",days:9,score:10.0},
+  {title:"Senior Demand Generation Manager",company:"Culture Amp",type:"scaleup",location:"Melbourne, AU",remote:true,url:"https://www.cultureamp.com/about/careers",desc:"Drive global demand gen for Culture Amp's people management platform. Own paid media, content distribution, and lifecycle programmes to hit pipeline targets. Strong B2B SaaS background and ABM experience preferred.",tags:["demand generation","b2b","saas","abm"],salary:"AUD $130k–$160k",days:11,score:12.5},
+  {title:"Growth Marketing Lead",company:"Afterpay",type:"enterprise",location:"Melbourne, AU",remote:false,url:"https://www.afterpay.com/en-AU/careers",desc:"Drive acquisition and retention growth across Afterpay's merchant and consumer segments. Own performance marketing, lifecycle campaigns, and growth experiments. Ecommerce and marketplace background highly valued.",tags:["growth marketing","ecommerce","marketplace","performance marketing","fintech"],salary:"AUD $120k–$148k",days:4,score:13.0},
+  {title:"Senior Growth Marketer",company:"Zip Co",type:"scaleup",location:"Sydney, AU",remote:true,url:"https://zip.co/au/careers",desc:"Lead growth initiatives across Zip's BNPL merchant and consumer products. Own experimentation roadmaps, paid acquisition, and referral programmes. Retail or ecommerce background is a genuine advantage.",tags:["growth marketing","ecommerce","fintech","marketplace"],salary:"AUD $115k–$145k",days:6,score:12.5},
+  {title:"Growth Marketing Manager",company:"Deputy",type:"scaleup",location:"Sydney, AU",remote:true,url:"https://www.deputy.com/au/careers",desc:"Deputy's workforce management platform serves 330,000+ businesses globally. Own growth marketing across SMB and mid-market segments — paid, SEO, and partnerships. B2B SaaS growth background preferred.",tags:["growth marketing","b2b","saas"],salary:"AUD $110k–$140k",days:14,score:11.5},
+  {title:"Head of Growth",company:"Buildkite",type:"startup",location:"Remote (AU preferred)",remote:true,url:"https://buildkite.com/jobs",desc:"Buildkite (Series B, AU-founded) is hiring their Head of Growth to own the full acquisition and expansion funnel for their developer tools platform. Comfort with PLG and B2B SaaS motions required. Equity-heavy package.",tags:["growth marketing","b2b","saas","startup","developer tools"],salary:"AUD $140k–$175k",days:3,score:13.5},
+  {title:"Growth Marketing Manager — Marketplace",company:"Airtasker",type:"scaleup",location:"Sydney, AU",remote:false,url:"https://www.airtasker.com/about/careers/",desc:"Drive growth marketing for Airtasker's two-sided marketplace — growing both poster and tasker acquisition. Run paid campaigns, SEO and partnership growth programmes. Deep marketplace or platform experience strongly preferred.",tags:["growth marketing","marketplace","ecommerce","two-sided marketplace"],salary:"AUD $105k–$135k",days:5,score:12.0},
+  {title:"Partner Marketing Manager — APAC",company:"Stripe",type:"enterprise",location:"Remote (APAC)",remote:true,url:"https://stripe.com/jobs",desc:"Develop and execute co-marketing initiatives with Stripe's ecosystem of platform and integration partners across APAC. Create joint campaigns, manage MDF budgets, and measure partner-sourced pipeline.",tags:["partner marketing","b2b","marketplace","saas"],salary:"AUD $125k–$158k",days:7,score:11.5},
+  {title:"Partner Marketing Manager",company:"Salesforce",type:"enterprise",location:"Sydney, AU",remote:true,url:"https://salesforce.com/company/careers/",desc:"Lead partner marketing programmes for Salesforce's AppExchange ecosystem in Australia. Co-develop campaigns with ISV and SI partners, execute joint events, and track partner-influenced pipeline.",tags:["partner marketing","b2b","saas","crm"],salary:"AUD $120k–$150k",days:12,score:10.5},
+  {title:"Field Marketing Manager — ANZ",company:"Zendesk",type:"enterprise",location:"Sydney, AU",remote:false,url:"https://www.zendesk.com/jobs/",desc:"Own field marketing for Zendesk's ANZ region. Plan and execute regional events, executive roundtables, and digital programmes that drive pipeline. Partner closely with Sales and SDR teams to convert opportunities.",tags:["field marketing","b2b","saas","events"],salary:"AUD $110k–$140k",days:9,score:10.0},
+  {title:"Content Marketing Manager — B2B",company:"Culture Amp",type:"scaleup",location:"Melbourne, AU",remote:true,url:"https://www.cultureamp.com/about/careers",desc:"Drive thought leadership and inbound demand through content for Culture Amp's people management platform. Own the editorial calendar, SEO content strategy, and distribution. Comfortable writing for a B2B SaaS audience.",tags:["content marketing","b2b","saas","seo"],salary:"AUD $100k–$130k",days:13,score:9.5},
+  {title:"Senior Brand and Content Manager",company:"Airwallex",type:"scaleup",location:"Melbourne, AU",remote:true,url:"https://www.airwallex.com/au/careers",desc:"Lead brand voice and content strategy for Airwallex, the global payments fintech. Develop campaigns targeting SMBs and enterprise, manage agency relationships, and own brand guidelines.",tags:["brand marketing","content marketing","b2b","fintech"],salary:"AUD $115k–$145k",days:8,score:9.0},
+  {title:"Content Marketing Lead",company:"Employment Hero",type:"scaleup",location:"Sydney, AU",remote:true,url:"https://employmenthero.com/careers/",desc:"Employment Hero is Australia's fastest-growing HR platform. Lead content marketing to drive awareness and inbound for SMB and mid-market segments. Own SEO strategy, editorial calendar, and content distribution.",tags:["content marketing","b2b","saas","smb"],salary:"AUD $95k–$125k",days:10,score:9.0},
+  {title:"Head of Marketing — APAC",company:"Algolia",type:"scaleup",location:"Sydney, AU",remote:true,url:"https://www.algolia.com/careers",desc:"Algolia is hiring a Head of Marketing for APAC to own regional GTM. Build and manage a team, drive pipeline through events, content, and digital campaigns, and partner closely with Sales and CS.",tags:["b2b","saas","demand generation","apac"],salary:"AUD $160k–$200k",days:5,score:11.0},
+  {title:"Head of Marketing",company:"Octopus Deploy",type:"scaleup",location:"Brisbane, AU",remote:true,url:"https://octopus.com/company/careers",desc:"Lead marketing for Octopus Deploy, the DevOps automation platform used by 5,000+ companies globally. Own brand, demand gen, product marketing, and content. Strong B2B SaaS background and team leadership experience.",tags:["b2b","saas","demand generation","developer tools"],salary:"AUD $155k–$195k",days:6,score:11.0},
+  {title:"Director of Marketing, ANZ",company:"HubSpot",type:"enterprise",location:"Sydney, AU",remote:true,url:"https://www.hubspot.com/company/careers",desc:"Lead HubSpot's ANZ marketing team across demand gen, field, and partner programmes. Own regional revenue targets and team of 5. Proven track record scaling B2B SaaS marketing in ANZ market.",tags:["b2b","saas","demand generation","director"],salary:"AUD $170k–$220k",days:4,score:11.5},
+  {title:"Ecommerce Marketing Manager",company:"THE ICONIC",type:"enterprise",location:"Sydney, AU",remote:false,url:"https://www.theiconic.com.au/careers/",desc:"Drive acquisition and retention marketing for THE ICONIC's ecommerce platform. Own paid media, email lifecycle, and promotional calendar. Strong performance marketing and ecommerce analytics background.",tags:["ecommerce marketing","ecommerce","performance marketing"],salary:"AUD $100k–$130k",days:7,score:10.0},
+  {title:"Marketplace Marketing Manager",company:"Seek",type:"enterprise",location:"Melbourne, AU",remote:true,url:"https://www.seek.com.au/work-for-seek",desc:"Own marketing strategy for SEEK's two-sided marketplace — driving both advertiser and job-seeker engagement. Develop campaigns, test messaging, and own the acquisition funnel. Deep marketplace or platform experience a major plus.",tags:["marketplace marketing","marketplace","b2b"],salary:"AUD $115k–$145k",days:3,score:12.5},
+  {title:"Seller Marketing Manager",company:"Amazon AU",type:"enterprise",location:"Sydney, AU",remote:false,url:"https://www.amazon.jobs/en/locations/sydney-australia",desc:"Drive marketing programmes to grow Amazon AU's third-party seller base. Own seller acquisition campaigns, webinars, and lifecycle comms. Background in marketplace or B2B ecommerce strongly preferred.",tags:["marketplace marketing","ecommerce","b2b","sellers"],salary:"AUD $120k–$155k",days:8,score:11.5},
+  {title:"Marketing Manager — Payments & Commerce",company:"Stripe",type:"enterprise",location:"Remote (APAC)",remote:true,url:"https://stripe.com/jobs",desc:"Own integrated marketing for Stripe's payments and commerce products in APAC. Lead campaign strategy targeting online businesses, marketplaces, and platforms. Strong ecommerce and payments ecosystem knowledge preferred.",tags:["ecommerce marketing","ecommerce","b2b","marketplace","fintech"],salary:"AUD $130k–$165k",days:9,score:12.5},
+  {title:"Marketing Manager (First Hire)",company:"Pyn",type:"startup",location:"Remote",remote:true,url:"https://www.pyn.com/careers",desc:"Pyn (Series A, HR-tech) is hiring their first full-time marketer. Own everything — content, demand gen, brand, and events. Huge opportunity for someone wanting to build from zero. B2B SaaS background and comfort with ambiguity essential.",tags:["b2b","saas","startup","demand generation","content marketing"],salary:"AUD $110k–$140k",days:2,score:11.5},
+  {title:"Growth Marketing Manager",company:"Lano",type:"startup",location:"Remote",remote:true,url:"https://lano.io/careers",desc:"Lano is a global employment and payroll platform (Series B). Drive growth marketing across paid, SEO, and lifecycle to grow our SaaS user base. Remote-first company, strong EU+APAC presence.",tags:["growth marketing","b2b","saas","startup"],salary:"AUD $105k–$135k",days:5,score:12.0},
+  {title:"B2B Marketing Manager",company:"Lexer",type:"startup",location:"Melbourne, AU",remote:true,url:"https://lexer.io/careers",desc:"Lexer is a retail customer data platform (CDP) used by leading brands like Quiksilver and Sur La Table. Own B2B marketing targeting retail marketing teams — content, events, and demand gen. Retail industry knowledge a huge plus.",tags:["b2b marketing","saas","retail tech","ecommerce"],salary:"AUD $100k–$130k",days:4,score:12.5},
+  {title:"Senior Marketing Manager",company:"Flip",type:"startup",location:"Sydney, AU",remote:true,url:"https://www.flip.com.au/careers",desc:"Flip is transforming how Australian SMBs access insurance (Series A). Own all marketing as our senior hire — brand, demand gen, and digital. Strong B2B or fintech marketing background and willingness to be hands-on.",tags:["b2b","fintech","startup","demand generation"],salary:"AUD $115k–$145k",days:6,score:11.5},
+  {title:"Marketing Manager",company:"Shippit",type:"scaleup",location:"Sydney, AU",remote:true,url:"https://www.shippit.com/careers/",desc:"Shippit is the logistics platform behind Australia's fastest-growing brands. Drive B2B marketing targeting ecommerce retailers — content, events, and demand gen. Deep ecommerce logistics knowledge is a significant plus.",tags:["b2b marketing","ecommerce","saas","logistics"],salary:"AUD $105k–$135k",days:11,score:11.5},
+  {title:"Product Marketing Manager",company:"Limepay",type:"startup",location:"Sydney, AU",remote:true,url:"https://www.limepay.com.au/careers",desc:"Limepay provides embedded payments for ecommerce businesses. Join as first PMM — own positioning, go-to-market, and sales enablement for our merchant-facing product. Payments and ecommerce background ideal.",tags:["product marketing","ecommerce","fintech","marketplace"],salary:"AUD $110k–$140k",days:3,score:13.0},
+  {title:"Marketing Manager — AI Products",company:"Canva",type:"scaleup",location:"Sydney, AU",remote:true,url:"https://www.canva.com/careers/",desc:"Drive awareness and adoption of Canva's AI-powered features (Magic Studio). Own GTM for AI product launches, develop messaging for creative and marketing professionals, and work closely with Product and Comms teams.",tags:["product marketing","ai","saas","b2b"],salary:"AUD $130k–$165k",days:1,score:11.5},
+  {title:"Growth Marketing Manager",company:"Relevance AI",type:"startup",location:"Sydney, AU",remote:true,url:"https://relevanceai.com/careers",desc:"Relevance AI is the platform for building AI agents and workflows. Drive growth marketing targeting B2B SaaS teams and ops leaders. Own paid, SEO, and lifecycle. Exciting role at the intersection of AI and SaaS.",tags:["growth marketing","b2b","saas","ai","startup"],salary:"AUD $110k–$145k",days:2,score:13.5},
+  {title:"B2B Marketing Manager — AI Platform",company:"Appen",type:"enterprise",location:"Sydney, AU",remote:true,url:"https://www.appen.com/careers/",desc:"Develop and execute B2B marketing for Appen's AI training data platform, targeting enterprise ML teams globally. Own content, analyst relations, and demand generation programmes.",tags:["b2b marketing","ai","enterprise","demand generation"],salary:"AUD $115k–$148k",days:7,score:11.5},
+  {title:"Senior Marketing Manager",company:"Workato",type:"scaleup",location:"Remote (APAC)",remote:true,url:"https://www.workato.com/careers",desc:"Workato's iPaaS and automation platform is used by 10,000+ enterprises. Drive APAC marketing across demand gen, events, and content. Partner with Sales and CS on account-based programmes.",tags:["b2b","saas","enterprise","demand generation","automation"],salary:"AUD $125k–$158k",days:9,score:11.5},
+  {title:"Product Marketing Manager, Commerce",company:"BigCommerce",type:"enterprise",location:"Remote (AU-friendly)",remote:true,url:"https://www.bigcommerce.com/jobs/",desc:"Own product marketing for BigCommerce's commerce platform targeting mid-market and enterprise retailers. Drive launch strategy, competitive positioning, and sales enablement. Deep ecommerce and retail knowledge essential.",tags:["product marketing","ecommerce","saas","marketplace","b2b"],salary:"AUD $120k–$155k",days:6,score:14.0},
+  {title:"Senior Product Marketing Manager, Marketplace",company:"Faire",type:"scaleup",location:"Remote",remote:true,url:"https://www.faire.com/careers",desc:"Faire is the wholesale marketplace connecting independent brands with retailers globally. Join as PMM for our marketplace product — defining value props for brands and retailers. Marketplace and retail background essential.",tags:["product marketing","marketplace","ecommerce","b2b","retail tech"],salary:"AUD $140k–$180k",days:4,score:15.5},
+  {title:"Marketing Manager — APAC",company:"Gorgias",type:"startup",location:"Remote (APAC)",remote:true,url:"https://www.gorgias.com/careers",desc:"Gorgias is the ecommerce helpdesk used by 14,000+ Shopify stores. Drive APAC marketing — events, digital campaigns, and partner activations. First marketing hire for the region. Strong ecommerce ecosystem knowledge required.",tags:["b2b marketing","ecommerce","saas","startup"],salary:"AUD $100k–$130k",days:5,score:12.0},
+  {title:"Ecommerce Marketing Specialist",company:"Klaviyo",type:"enterprise",location:"Remote (AU)",remote:true,url:"https://www.klaviyo.com/careers",desc:"Klaviyo is the leading email and SMS platform for ecommerce brands. Drive marketing programmes targeting ecommerce and DTC brands in ANZ. Own campaigns, webinars, and partner activations with Shopify ecosystem.",tags:["ecommerce marketing","ecommerce","b2b","saas"],salary:"AUD $95k–$125k",days:11,score:11.5},
+  {title:"Partner Marketing Manager — APAC",company:"Shopify",type:"enterprise",location:"Remote (APAC)",remote:true,url:"https://www.shopify.com/careers",desc:"Develop co-marketing programmes with Shopify's APAC agency and technology partner ecosystem. Own joint campaigns, events, and partner enablement. Deep understanding of ecommerce and app ecosystem required.",tags:["partner marketing","ecommerce","marketplace","saas","b2b"],salary:"AUD $115k–$148k",days:8,score:12.5},
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+const state = { q:'', role:null, type:null, loc:'all', score:0, sort:'score' };
+
+const ROLES = [
+  { key:'pmm',     label:'Product Marketing', tags:['product marketing'] },
+  { key:'growth',  label:'Growth',            tags:['growth marketing','growth'] },
+  { key:'b2b',     label:'B2B / Demand Gen',  tags:['b2b marketing','b2b','demand generation'] },
+  { key:'content', label:'Content / Brand',   tags:['content marketing','brand marketing'] },
+  { key:'partner', label:'Partner / Field',   tags:['partner marketing','field marketing'] },
+  { key:'ecomm',   label:'Ecommerce',         tags:['ecommerce marketing','ecommerce'] },
+];
+
+const TYPES = [
+  { key:'startup',    label:'Startup' },
+  { key:'scaleup',    label:'Scale-up' },
+  { key:'enterprise', label:'Enterprise' },
+];
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+function init() {
+  // Role chips
+  const rc = document.getElementById('role-chips');
+  rc.innerHTML = `<button class="chip on text-left" id="role-all" onclick="setRole(null)">All roles</button>` +
+    ROLES.map(r => `<button class="chip off text-left" id="role-${r.key}" onclick="setRole('${r.key}')">${r.label}</button>`).join('');
+
+  // Type chips
+  const tc = document.getElementById('type-chips');
+  tc.innerHTML = `<button class="chip on text-left" id="type-all" onclick="setType(null)">All stages</button>` +
+    TYPES.map(t => `<button class="chip off text-left" id="type-${t.key}" onclick="setType('${t.key}')">${t.label}</button>`).join('');
+
+  document.getElementById('q').addEventListener('input', e => { state.q = e.target.value.trim(); render(); });
+  document.getElementById('sort').addEventListener('change', e => { state.sort = e.target.value; render(); });
+
+  render();
+}
+
+// ── Filter + sort ──────────────────────────────────────────────────────────
+function filtered() {
+  return JOBS.filter(j => {
+    if (state.loc === 'remote' && !j.remote) return false;
+    if (state.type && j.type !== state.type) return false;
+    if (j.score < state.score) return false;
+    if (state.role) {
+      const rDef = ROLES.find(r => r.key === state.role);
+      if (rDef && !rDef.tags.some(t => j.tags.includes(t) || j.title.toLowerCase().includes(t)))
+        return false;
+    }
+    if (state.q) {
+      const ql = state.q.toLowerCase();
+      const hay = `${j.title} ${j.company} ${j.location} ${j.tags.join(' ')} ${j.desc}`.toLowerCase();
+      if (!ql.split(' ').every(w => hay.includes(w))) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    if (state.sort === 'date') return a.days - b.days;
+    if (state.sort === 'salary') {
+      const sa = parseInt((a.salary||'0').replace(/[^0-9]/g,'').slice(-6)) || 0;
+      const sb = parseInt((b.salary||'0').replace(/[^0-9]/g,'').slice(-6)) || 0;
+      return sb - sa;
+    }
+    return b.score - a.score;
+  });
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const jobs = filtered();
+  document.getElementById('count').textContent = `${jobs.length} of ${JOBS.length}`;
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+
+  if (!jobs.length) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    empty.classList.add('flex');
+    return;
+  }
+  empty.classList.add('hidden');
+  empty.classList.remove('flex');
+
+  list.innerHTML = jobs.map(card).join('');
+}
+
+function card(j) {
+  const max = 16, pct = Math.min(100, (j.score / max) * 100);
+  const cls = j.score >= 12 ? 'hi' : j.score >= 8 ? 'md' : 'lo';
+  const typeBadge = {startup:'badge-startup',scaleup:'badge-scaleup',enterprise:'badge-enterprise'}[j.type] || '';
+  const typeLabel = {startup:'Startup',scaleup:'Scale-up',enterprise:'Enterprise'}[j.type] || j.type;
+  const ago = j.days === 0 ? 'Today' : j.days === 1 ? '1d ago' : `${j.days}d ago`;
+  const remotePill = j.remote ? `<span class="tag bg-violet-50 text-violet-700">Remote</span>` : '';
+  const salaryPill = j.salary ? `<span class="text-xs font-semibold text-emerald-600">${esc(j.salary)}</span>` : '';
+  const tagPills = j.tags.slice(0,4).map(t => `<span class="tag bg-slate-100 text-slate-500">${esc(t)}</span>`).join('');
+  const initial = j.company.charAt(0);
+
+  return `
+<a href="${esc(j.url)}" target="_blank" rel="noopener noreferrer"
+   class="card block bg-white rounded-xl border border-slate-100 p-5 cursor-pointer group">
+  <div class="flex gap-3 items-start">
+    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-500 font-bold text-sm flex-shrink-0 group-hover:from-indigo-50 group-hover:to-purple-50 group-hover:text-indigo-600 transition">${esc(initial)}</div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition">${esc(j.title)}</p>
+          <p class="text-xs text-slate-500 mt-0.5">${esc(j.company)} &middot; ${esc(j.location)}</p>
+        </div>
+        <div class="flex-shrink-0 flex flex-col items-end gap-1">
+          <span class="tag ${typeBadge}">${typeLabel}</span>
+          <span class="text-[10px] text-slate-400">${ago}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3 mb-2">
+    <div class="flex justify-between mb-1">
+      <span class="text-[10px] text-slate-400 uppercase tracking-wide">Match</span>
+      <span class="text-[10px] font-semibold text-slate-500">${j.score.toFixed(1)} / 16</span>
+    </div>
+    <div class="bar"><div class="fill ${cls}" style="width:${pct}%"></div></div>
+  </div>
+
+  <p class="text-xs text-slate-500 leading-relaxed line-clamp-2 mb-3">${esc(j.desc)}</p>
+
+  <div class="flex items-center gap-1.5 flex-wrap">
+    ${remotePill}
+    ${salaryPill}
+    ${tagPills}
+    <span class="ml-auto text-xs font-medium text-indigo-500 group-hover:text-indigo-700 transition flex items-center gap-1">
+      View →
+    </span>
+  </div>
+</a>`;
+}
+
+// ── Controls ───────────────────────────────────────────────────────────────
+function setRole(key) {
+  state.role = key;
+  document.querySelectorAll('[id^="role-"]').forEach(el => el.classList.replace('on','off'));
+  document.getElementById(key ? `role-${key}` : 'role-all').classList.replace('off','on');
+  render();
+}
+function setType(key) {
+  state.type = key;
+  document.querySelectorAll('[id^="type-"]').forEach(el => el.classList.replace('on','off'));
+  document.getElementById(key ? `type-${key}` : 'type-all').classList.replace('off','on');
+  render();
+}
+function setLoc(val) {
+  state.loc = val;
+  ['all','remote'].forEach(v => document.getElementById(`loc-${v}`).classList.replace('on','off'));
+  document.getElementById(`loc-${val}`).classList.replace('off','on');
+  render();
+}
+function setScore(val) {
+  state.score = val;
+  [0,3,6,9].forEach(v => document.getElementById(`sc-${v}`).classList.replace('on','off'));
+  document.getElementById(`sc-${val}`).classList.replace('off','on');
+  render();
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>
